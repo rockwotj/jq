@@ -10,7 +10,8 @@ struct nomem_handler {
 
 #if !defined(HAVE_PTHREAD_KEY_CREATE) || \
     !defined(HAVE_PTHREAD_ONCE) || \
-    !defined(HAVE_ATEXIT)
+    !defined(HAVE_ATEXIT) || \
+    defined(__wasi__)
 
 /* Try thread-local storage? */
 
@@ -19,7 +20,7 @@ struct nomem_handler {
 static __declspec(thread) struct nomem_handler nomem_handler;
 #define USE_TLS
 #else
-#ifdef HAVE___THREAD
+#if defined(HAVE___THREAD) && !defined(__wasi__)
 /* GCC and friends: yes */
 static __thread struct nomem_handler nomem_handler;
 #define USE_TLS
@@ -42,7 +43,7 @@ static void memory_exhausted() {
 }
 #else /* USE_TLS */
 
-#ifdef HAVE_PTHREAD_KEY_CREATE
+#if defined(HAVE_PTHREAD_KEY_CREATE) && !defined(__wasi__)
 #include <pthread.h>
 
 static pthread_key_t nomem_handler_key;

@@ -488,6 +488,51 @@ pthread_getspecific(pthread_key_t key)
 #include <pthread.h>
 #endif
 
+#ifdef __wasi__
+// A trivial implementation of the pthread functionality we need for a single threaded wasi runtime.
+_Static_assert(PTHREAD_ONCE_INIT == 0, "expected PTHREAD_ONCE_INIT == 0");
+
+int pthread_once(pthread_once_t* once, void (*callback)(void)) {
+  if (*once) {
+    return 0;
+  }
+  *once = 1;
+  callback();
+  return 1;
+}
+
+#define PTHREAD_KEYS_MAX 128
+void* all_pthread_keys[PTHREAD_KEYS_MAX];
+unsigned int available_pthread_key = 0;
+
+int pthread_key_create(pthread_key_t* k, void (*dtor)(void*)) {
+  if (available_pthread_key >= PTHREAD_KEYS_MAX) {
+    return 1;
+  }
+  *k = available_pthread_key++;
+  all_pthread_keys[*k] = NULL; // initialize to NULL 
+  // We're just going to leak this memory since it's global and there are no exit hooks.
+  (void)dtor;
+  return 0;
+}
+
+void *pthread_getspecific(pthread_key_t k) {
+  if (k >= available_pthread_key) {
+    return NULL;
+  }
+  return all_pthread_keys[k];
+}
+
+int pthread_setspecific(pthread_key_t k, const void * value) {
+  if (k >= available_pthread_key) {
+    return 1;
+  }
+  all_pthread_keys[k] = (void*)value;
+  return 0;
+}
+
+#endif
+
 static pthread_key_t dec_ctx_key;
 static pthread_key_t dec_ctx_dbl_key;
 static pthread_once_t dec_ctx_once = PTHREAD_ONCE_INIT;

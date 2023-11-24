@@ -127,6 +127,7 @@ jv get_home() {
 
 
 jv jq_realpath(jv path) {
+#ifndef __wasi__
   int path_max;
   char *buf = NULL;
 #ifdef _PC_PATH_MAX
@@ -149,6 +150,7 @@ jv jq_realpath(jv path) {
   jv_free(path);
   path = jv_string(tmp);
   free(tmp);
+#endif
   return path;
 }
 
