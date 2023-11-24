@@ -1,4 +1,4 @@
-FROM debian:12-slim AS builder
+FROM ghcr.io/webassembly/wasi-sdk:latest
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -16,20 +16,17 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY . /app
-RUN autoreconf -i \
+
+ENV CFLAGS="-O2 -D_WASI_EMULATED_SIGNAL $CFLAGS" \
+    LDFLAGS="$LDFLAGS -lwasi-emulated-signal"
+RUN env && autoreconf -i \
  && ./configure \
+      --host=wasm32-wasi \
       --disable-docs \
       --disable-valgrind \
+      --disable-maintainer-mode \
       --with-oniguruma=builtin \
-      --enable-static \
-      --enable-all-static \
       --prefix=/usr/local \
  && make -j$(nproc) \
- && make check VERBOSE=yes \
- && make install-strip
-
-FROM scratch
-
-COPY --from=builder /app/AUTHORS /app/COPYING /usr/local/bin/jq /
-RUN ["/jq", "--version"]
-ENTRYPOINT ["/jq"]
+ && make install-libLTLIBRARIES install-includeHEADERS \
+ && (cd modules/oniguruma/src && make install-libLTLIBRARIES install-includeHEADERS)
